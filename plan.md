@@ -42,6 +42,7 @@
 ### Tooling
 - [x] `.editorconfig` with 4-space indentation
 
+## Refactors
 - [x] **`World.cs` refactor** - extract player input/mining logic into a `PlayerController` class. `World` shouldn't own input handling.
 - [x] `GetMousePositionInGrid()` → make `public` on `World`, call from `PlayerController`
 
@@ -55,6 +56,45 @@
 - [ ] **Recipe registry** - references both items and machines.
 > The tick system will be folded into the machine registry phase rather than treated as a separate refactor step.
 
-## Simple Ui
+### Machines
+- [ ] **Make them placeable**
+- [ ] **Recipes** - How do machines use recipes?
+- [ ] **Simple machine ui**
+- [ ] **Power system** - some machines will use steam some will use power
+- [ ] **Collison with player** - players can't walk over machines
+
+### Inventory
+- [ ] **Storing items** - Picked up items will be stored in the player inventory
+- [ ] **Size of inventory**
+- [ ] **Inventory crafting** - Allow players to craft using items in their inventory
+
+### Storage
+- [ ] **Box/chest** - this will be used to store items get output from machines
+
+### Pipe system
+- [ ] **Item routing**
+- [ ] **Liquid/gas routing**
+- [ ] **Power routing**
+
+### Simple Ui
 - [ ] **A basic HUD**
-- [ ] **A simple invetory system** - this will be for a main invetroy and scroll bar
+- [ ] **A simple inventory system** - this will be for a main inventory and scroll bar
+- [ ] **Pick up system**
+- [ ] **Item stack size**
+
+### Saving / Loading
+- [ ] **Save world state**
+- [ ] **Load world state**
+- [ ] **Menu** - Used for loading an creating new games
+
+### World gen
+- [ ] **Load resource nodes in** - Generate world
+- [ ] **Remove grid texture** - Replace with something a bit more pleasing
+
+### Resources
+- [ ] **Create copper**
+- [ ] **Create coal**
+- [ ] **Create sand**
+- [ ] **Create clay**
+- [ ] **Create water**
+- [ ] **Create wood/trees**
