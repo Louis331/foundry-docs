@@ -51,7 +51,8 @@ Base class for all objects that exist in the simulation.
 - Not a Node - no scene tree dependency whatsoever
 
 **Subclasses:**
-- `ResourceNode` - mineable resource (iron ore, etc.) - has `Hardness`
+- `ResourceNode` - mineable resource (iron ore, etc.)
+- `Machine` - tickable machine (furnace, etc.) - has `Tier` and `PowerConsumption`
 
 ---
 
@@ -62,10 +63,12 @@ Static data for a type of placeable, loaded from JSON. One definition per *type*
 |---|---|---|
 | `Id` | `string` | Stable string key |
 | `Name` | `string` | Display name |
-| `Sprite` | `string` | Path to sprite asset |
+| `SpritePath` | `string` | Path to sprite asset |
 | `Size` | `(int X, int Y)` | Grid footprint |
-| `Type` | `string` | Maps to a C# subclass |
+| `Type` | `PlaceableType` | `Resource` or `Machine` |
 | `Hardness` | `float` | Mine time multiplier (default `1.0`) |
+| `Tier` | `MachineTier?` | Optional. Steam, LV, MV, HV |
+| `PowerConsumption` | `int?` | Optional. Positive = consumes, negative = produces |
 
 JSON lives at: `res://Objects/Data/Placeables/*.json`  
 Example: [iron_ore.json](#iron_orejson)
@@ -117,6 +120,50 @@ Controls how an item is routed and where it can exist.
 
 ---
 
+#### `PlaceableType` (enum)
+Categorises placeables for simulation routing.
+
+| Value | Description |
+|---|---|
+| `Resource` | Mineable world resource, not tickable |
+| `Machine` | Tickable, added to `SimulationManager` tick loop |
+
+---
+
+#### `MachineTier` (enum)
+Defines the power tier of a machine.
+
+| Value | Description |
+|---|---|
+| `Steam` | Powered by fuel combustion |
+| `LV` | Low voltage electric |
+| `MV` | Medium voltage electric |
+| `HV` | High voltage electric |
+
+---
+
+#### `Machine` (plain C# class)
+Subclass of `Placeable`. Base class for all tickable machines.
+
+| Property | Type | Description |
+|---|---|---|
+| `GridPosition` | `Vector2I` | Inherited from `Placeable` |
+| `Id` | `string` | Inherited from `Placeable` |
+| `Type` | `PlaceableType` | Inherited from `Placeable` |
+
+- Overrides `Tick()` — will process active recipes when recipe registry exists
+- Added to `GridWorld.tickables` on placement
+
+---
+
+#### `SimulationManager` (Godot Node)
+Drives the simulation tick loop. Lives as a child of the World scene.
+
+- Owns a `Timer` child node (`Tick`) set to `1.0 / 20.0` seconds (20 TPS)
+- On `Timeout` → iterates `GridWorld.Tickables`, calls `Tick()` on each
+- Tick rate is a hardcoded constant — dynamic TPS scaling parked for future
+- Holds an `[Export]` reference to `GridWorld`
+
 #### `GridWorld` (plain C# class)
 Authoritative simulation state. Owns the occupancy map.
 
@@ -128,7 +175,8 @@ Authoritative simulation state. Owns the occupancy map.
 | `GridToWorld(int x, int y)` | Returns cell centre in world coords |
 | `GetCellRect(int x, int y)` | Returns full cell Rect2 |
 
-- Dictionary: `Dictionary<Vector2I, Placeable>` - the ground truth of what's placed where
+- Occupied cells: `Dictionary<Vector2I, Placeable>` - the ground truth of what's placed where
+- Tickables: `Dictionary<Vector2I, Placeable>` - Public. All tickable placeables currently in the world
 
 ---
 
@@ -207,6 +255,8 @@ Always use string concatenation for `res://` paths rather than `System.IO.Path.C
 ```
 World.tscn
 ├── GridRenderer
+├── SimulationManager
+│   └── Tick (Timer)
 ├── Player (CharacterBody2D)
 │   └── Camera2D
 └── [PlaceableNodes spawned at runtime]
@@ -323,6 +373,32 @@ World.tscn
 
 ---
 
+### ADR-010: No separate MachineRegistry — machines extend PlaceableDefinition
+
+**Decision:** There is no `MachineRegistry`. Machine-specific fields (`Tier`, `PowerConsumption`) are optional nullable fields on `PlaceableDefinition`.
+
+**Rationale:**
+- A separate registry would duplicate the loading infrastructure for little gain
+- Machines are already identified by `PlaceableType.Machine`
+- Optional nullable fields keep the definition clean — non-machine placeables simply omit them
+
+**Consequence:** `PlaceableRegistry` remains the single source of truth for all placeable definitions including machines.
+
+---
+
+### ADR-011: Negative PowerConsumption for power-producing machines
+
+**Decision:** `PowerConsumption` uses sign to indicate direction — positive consumes power, negative produces it.
+
+**Rationale:**
+- A single `int?` field handles both consumers and producers
+- No need for a separate `PowerProduction` field
+- Simple convention, consistent with how power networks work in similar games
+
+**Consequence:** All code reading `PowerConsumption` must treat negative values as production. A comment on the field documents the convention.
+
+---
+
 ## Example data
 All data examples will live here to support building of new data files to add to the project.
 
@@ -347,6 +423,21 @@ Placeables are items that can be place in the world, they all have attributes th
     "TotalAmount": 10
   },
   "Hardness": 1.0
+}
+```
+
+### furnace.json
+
+```json
+{
+  "Id": "furnace",
+  "Name": "Furnace",
+  "Type": "Machine",
+  "SpritePath": "res://Objects/Placeables/Assets/furnace.png",
+  "Size": {
+    "X": 1,
+    "Y": 1
+  }
 }
 ```
 
