@@ -13,6 +13,7 @@
    - [Core Classes](#core-classes)
    - [Scene Structure](#scene-structure)
 2. [Architecture Decision Records (ADRs)](#architecture-decision-records)
+3. [Example data](#example-data)
 
 ---
 
@@ -66,7 +67,7 @@ Static data for a type of placeable, loaded from JSON. One definition per *type*
 | `hardness` | `float` | Mine time multiplier (default `1.0`) |
 
 JSON lives at: `res://Objects/Data/Placeables/*.json`  
-Example: `iron_ore.json`
+Example: [iron_ore.json](#iron_ore-json)
 
 ---
 
@@ -221,3 +222,29 @@ World.tscn
 **Problem:** `World.cs` handles player input, mining state, and proximity checks. These are player concerns, not world concerns.
 
 **Planned resolution:** Extract into a `PlayerController` class. `World` should only coordinate the grid state and spawning/despawning of `PlaceableNode`s.
+
+## Example data
+All data examples will live here to support building of new data files to add to the project.
+### Placeable example
+
+Placeables are items that can ve place in the world, they all have attributes that are loaded at runtime using the registry.
+
+### `iron_ore.json`
+
+```json
+{
+  "Id": "iron_ore",
+  "Name": "Iron Ore",
+  "Type": "Resource",
+  "SpritePath": "res://Objects/Placeables/Assets/iron_ore.png",
+  "Size": {
+    "X": 1,
+    "Y": 1
+  },
+  "Drop": {
+    "ItemId": "iron_ore",
+    "TotalAmount": 10
+  },
+  "Hardness": 1.0
+}
+```
