@@ -48,7 +48,7 @@
 
 ### Registers
 - [x] **Item registry** - items are the leaf dependency; machines and recipes reference them. Stable string IDs, JSON-driven.
-- [ ] ~~**Machine registry** - references items (I/O slots, valid inputs). Includes fixed-timestep `Tick` driving.~~ This is now being handled by placeables, Ticking has been implemented at a basic level
+- [x] ~~**Machine registry** - references items (I/O slots, valid inputs). Includes fixed-timestep `Tick` driving.~~ This is now being handled by placeables, Ticking has been implemented at a basic level
 
 ---
 
