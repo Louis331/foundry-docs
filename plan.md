@@ -53,9 +53,8 @@
 - [ ] **Item registry** - items are the leaf dependency; machines and recipes reference them. Stable string IDs, JSON-driven.
 - [ ] **Machine registry** - references items (I/O slots, valid inputs). Includes fixed-timestep `Tick` driving.
 - [ ] **Recipe registry** - references both items and machines.
+> The tick system will be folded into the machine registry phase rather than treated as a separate refactor step.
 
 ## Simple Ui
 - [ ] **A basic HUD**
 - [ ] **A simple invetory system** - this will be for a main invetroy and scroll bar
-
-> The tick system will be folded into the machine registry phase rather than treated as a separate refactor step.
