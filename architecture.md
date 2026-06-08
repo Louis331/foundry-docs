@@ -67,7 +67,7 @@ Static data for a type of placeable, loaded from JSON. One definition per *type*
 | `hardness` | `float` | Mine time multiplier (default `1.0`) |
 
 JSON lives at: `res://Objects/Data/Placeables/*.json`  
-Example: [iron_ore.json](#iron_ore-json)
+Example: [iron_ore.json](#iron_orejson)
 
 ---
 
@@ -229,7 +229,7 @@ All data examples will live here to support building of new data files to add to
 
 Placeables are items that can ve place in the world, they all have attributes that are loaded at runtime using the registry.
 
-### `iron_ore.json`
+#### iron_ore.json
 
 ```json
 {
