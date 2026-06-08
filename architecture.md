@@ -69,6 +69,7 @@ Static data for a type of placeable, loaded from JSON. One definition per *type*
 | `Hardness` | `float` | Mine time multiplier (default `1.0`) |
 | `Tier` | `MachineTier?` | Optional. Steam, LV, MV, HV |
 | `PowerConsumption` | `int?` | Optional. Positive = consumes, negative = produces |
+| `Speed` | `float` | Processing speed multiplier (default `1.0`). Effective recipe time = `Ticks / Speed` |
 
 JSON lives at: `res://Objects/Data/Placeables/*.json`  
 Example: [iron_ore.json](#iron_orejson)
@@ -150,9 +151,39 @@ Subclass of `Placeable`. Base class for all tickable machines.
 | `GridPosition` | `Vector2I` | Inherited from `Placeable` |
 | `Id` | `string` | Inherited from `Placeable` |
 | `Type` | `PlaceableType` | Inherited from `Placeable` |
+| `Recipes` | `List<RecipeDefinition>` | Candidate recipes fetched from `RecipeRegistry` on construction |
 
 - Overrides `Tick()` — will process active recipes when recipe registry exists
 - Added to `GridWorld.tickables` on placement
+- Fetches candidate recipes via `RecipeRegistry.Instance.GetRecipes(id)` on construction and caches the result
+
+---
+
+#### `RecipeDefinition` (plain C# class)
+Static data for a crafting recipe, loaded from JSON. Describes one transformation a machine can perform.
+
+| Property | Type | Description |
+|---|---|---|
+| `Id` | `string` | Stable string key |
+| `Inputs` | `Dictionary<string, int>` | Item id to quantity required |
+| `Outputs` | `Dictionary<string, int>` | Item id to quantity produced |
+| `MachineIds` | `List<string>` | Which machine types can run this recipe |
+| `Ticks` | `int` | Base duration of the transformation |
+
+Effective time = `Ticks / machine.Speed`. The recipe defines the work; the machine defines the rate.
+
+JSON lives at: `res://Objects/Recipes/Data/*.json`  
+Example: [smelting.json](#smeltingjson)
+
+---
+
+#### `RecipeRegistry` (Autoload Node)
+Loads all `RecipeDefinition` JSON files at startup. Builds two indexes for fast lookup.
+
+- `Recipes` - `Dictionary<string, List<RecipeDefinition>>` reverse index keyed by machine id. Built at load time so machine instances never scan the full registry per tick.
+- `RecipeById` - `Dictionary<string, RecipeDefinition>` keyed by recipe id. Used for validation.
+- Exposes `GetRecipes(machineId)` - returns candidate recipe list for a machine, empty list if none found.
+- `Machine` instances call `GetRecipes` once on construction and cache the result.
 
 ---
 
@@ -247,6 +278,33 @@ A custom `JsonConverter<(int X, int Y)>` from `System.Text.Json.Serialization`.
 ### Path Note
 
 Always use string concatenation for `res://` paths rather than `System.IO.Path.Combine`. See [ADR-005](#adr-005-use--not-pathcombine-for-godot-resource-paths).
+
+---
+
+## Game Startup
+
+All cross-registry validation runs at startup via `GameStartup` before the game is playable. This ensures broken references are caught immediately with a full error list rather than failing silently at runtime.
+
+#### `GameStartup` (Autoload Node)
+Orchestrates all validators in `_Ready`. Listed last in Autoloads so all registries are guaranteed loaded.
+
+- Collects errors from all validators into one combined list
+- Prints every error via `GD.PrintErr` before stopping
+- Calls `GetTree().Quit()` if any errors found - game refuses to start with broken data
+
+#### `RecipeValidator` (static class)
+Validates all loaded recipes against `ItemRegistry` and `PlaceableRegistry`.
+
+- Checks every `Inputs` key exists in `ItemRegistry`
+- Checks every `Outputs` key exists in `ItemRegistry`
+- Checks every `MachineIds` entry exists in `PlaceableRegistry`
+- Reports every invalid reference individually - not just the first failure
+
+#### `ResourceValidator` (static class)
+Validates all placeable drops against `ItemRegistry`.
+
+- Iterates all `PlaceableDefinition` entries that have a `Drop`
+- Checks `Drop.ItemId` exists in `ItemRegistry`
 
 ---
 
@@ -399,6 +457,19 @@ World.tscn
 
 ---
 
+### ADR-012: Full error list before crash on startup validation failure
+
+**Decision:** `GameStartup` collects all validation errors across all validators before stopping, rather than failing on the first error.
+
+**Rationale:**
+- Failing on the first error forces a fix-run-fix-run loop - a modder or developer with ten broken references has to fix them one at a time
+- Collecting all errors and printing them before quitting surfaces everything at once
+- Inspired by the modded Minecraft experience of chasing errors one at a time
+
+**Consequence:** All validators must return `List<string>` rather than throwing immediately. `GameStartup` owns the decision to stop.
+
+---
+
 ## Example data
 All data examples will live here to support building of new data files to add to the project.
 
@@ -457,3 +528,24 @@ Items are goods that exist in inventory and flow through the factory network.
   "ItemType": "Solid"
 }
 ```
+
+### Recipe examples
+
+Recipes describe transformations machines perform. Time is in simulation ticks. Effective time = `Ticks / machine.Speed`.
+
+#### smelting.json
+
+​```json
+{
+  "Id": "smelting",
+  "Inputs": {
+    "iron_ore": 3,
+    "coal": 1
+  },
+  "Outputs": {
+    "iron_ingot": 1
+  },
+  "MachineIds": ["furnace"],
+  "Ticks": 40
+}
+​```

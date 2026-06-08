@@ -49,15 +49,11 @@
 ### Registers
 - [x] **Item registry** - items are the leaf dependency; machines and recipes reference them. Stable string IDs, JSON-driven.
 - [x] ~~**Machine registry** - references items (I/O slots, valid inputs). Includes fixed-timestep `Tick` driving.~~ This is now being handled by placeables, Ticking has been implemented at a basic level
+- [x] **Recipe registry** - references both items and machines.
 
 ---
 
 ## What's Next
-
-### Registries (planned as one unit, in dependency order)
-- [ ] **Machine registry** - references items (I/O slots, valid inputs). Includes fixed-timestep `Tick` driving.
-- [ ] **Recipe registry** - references both items and machines.
-> The tick system will be folded into the machine registry phase rather than treated as a separate refactor step.
 
 ### Machines
 - [ ] **Make them placeable**
