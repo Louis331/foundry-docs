@@ -143,7 +143,7 @@ Previously named `GridTest`. The scene coordinator / presenter - not a simulatio
 
 Placeables are loaded at startup by `PlaceableRegistry` using two helper classes.
 
-### `JsonLoader`
+### JsonLoader
 
 A static utility class that handles reading and deserialising JSON files from the Godot virtual filesystem.
 
@@ -152,7 +152,7 @@ A static utility class that handles reading and deserialising JSON files from th
 - Generic method constrained to reference types: `Load<T> where T : class`
 - Uses `private static readonly` for the options object to avoid recreating it on every call
 
-### `TupleConverter`
+### TupleConverter
 
 A custom `JsonConverter<(int X, int Y)>` from `System.Text.Json.Serialization`.
 
@@ -243,9 +243,9 @@ World.tscn
 
 ---
 
-### ADR-006: `World.cs` currently owns too much - refactor pending
+### ADR-006: `World.cs` currently owns too much - refactor completed
 
-**Status:** Known issue, not yet resolved.
+**Status:** Known issue, resolved.
 
 **Problem:** `World.cs` handles player input, mining state, and proximity checks. These are player concerns, not world concerns.
 
