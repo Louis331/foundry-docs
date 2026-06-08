@@ -470,6 +470,20 @@ World.tscn
 
 ---
 
+### ADR-013: Recipe duration is floored to nearest tick
+
+**Decision:** Effective recipe duration is calculated as `Math.Floor(recipe.Ticks / machine.Speed)` and stored as an `int`.
+
+**Rationale:**
+- `recipe.Ticks` is an integer, `machine.Speed` is a float, producing a fractional result
+- Machines track progress as an integer tick counter, so the duration must resolve to a whole number
+- `Math.Floor` avoids float comparison issues at completion and keeps the tick counter simple
+- Sub-tick precision has no gameplay value at 20 TPS
+
+**Consequence:** A furnace at 1.5x speed running a 40 tick recipe completes in 26 ticks, not 26.67. Speeds that produce non-integer durations lose a small amount of time — this is acceptable.
+
+---
+
 ## Example data
 All data examples will live here to support building of new data files to add to the project.
 
