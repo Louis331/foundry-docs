@@ -42,16 +42,18 @@
 ### Tooling
 - [x] `.editorconfig` with 4-space indentation
 
-## Refactors
+### Refactors
 - [x] **`World.cs` refactor** - extract player input/mining logic into a `PlayerController` class. `World` shouldn't own input handling.
 - [x] `GetMousePositionInGrid()` → make `public` on `World`, call from `PlayerController`
+
+### Registers
+- [x] **Item registry** - items are the leaf dependency; machines and recipes reference them. Stable string IDs, JSON-driven.
 
 ---
 
 ## What's Next
 
 ### Registries (planned as one unit, in dependency order)
-- [ ] **Item registry** - items are the leaf dependency; machines and recipes reference them. Stable string IDs, JSON-driven.
 - [ ] **Machine registry** - references items (I/O slots, valid inputs). Includes fixed-timestep `Tick` driving.
 - [ ] **Recipe registry** - references both items and machines.
 > The tick system will be folded into the machine registry phase rather than treated as a separate refactor step.

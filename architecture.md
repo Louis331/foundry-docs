@@ -60,12 +60,12 @@ Static data for a type of placeable, loaded from JSON. One definition per *type*
 
 | Property | Type | Description |
 |---|---|---|
-| `id` | `string` | Stable string key |
-| `name` | `string` | Display name |
-| `sprite` | `string` | Path to sprite asset |
-| `size` | `(int X, int Y)` | Grid footprint |
-| `type` | `string` | Maps to a C# subclass |
-| `hardness` | `float` | Mine time multiplier (default `1.0`) |
+| `Id` | `string` | Stable string key |
+| `Name` | `string` | Display name |
+| `Sprite` | `string` | Path to sprite asset |
+| `Size` | `(int X, int Y)` | Grid footprint |
+| `Type` | `string` | Maps to a C# subclass |
+| `Hardness` | `float` | Mine time multiplier (default `1.0`) |
 
 JSON lives at: `res://Objects/Data/Placeables/*.json`  
 Example: [iron_ore.json](#iron_orejson)
@@ -78,6 +78,42 @@ Loads all `PlaceableDefinition` JSON files at startup. Globally accessible via G
 - Registered under: Project → Project Settings → Globals → Autoloads
 - Uses `JsonLoader` + `TupleConverter` helpers for deserialisation
 - Lookup: `PlaceableRegistry.Get("iron_ore")` → `PlaceableDefinition`
+
+---
+
+#### `ItemDefinition` (plain C# class)
+Static data for a type of item, loaded from JSON. One definition per *type*.
+
+| Property | Type | Description |
+|---|---|---|
+| `Id` | `string` | Stable string key |
+| `Name` | `string` | Display name |
+| `Description` | `string` | Flavour/tooltip text |
+| `SpritePath` | `string` | Path to sprite asset |
+| `MaxStackSize` | `int` | Max items per stack |
+| `Type` | `ItemType` | `Solid`, `Fluid`, or `Placeable` |
+
+JSON lives at: `res://Objects/Items/Data/*.json`  
+Example: [iron_ore.json](#iron_ingotjson)
+
+---
+#### `ItemRegistry` (Autoload Node)
+Loads all `ItemDefinition` JSON files at startup. Globally accessible via Godot Autoload.
+
+- Registered under: Project → Project Settings → Globals → Autoloads
+- Uses the shared `JsonLoader` helper for deserialisation
+- `ItemType` deserialises from string values using `[JsonConverter(typeof(JsonStringEnumConverter))]`
+- Lookup: `ItemRegistry.GetItem("iron_ore")` → `ItemDefinition`
+---
+
+#### `ItemType` (enum)
+Controls how an item is routed and where it can exist.
+
+| Value | Description |
+|---|---|
+| `Solid` | Travels through item pipes |
+| `Fluid` | Travels through fluid pipes — covers both liquids and gases |
+| `Placeable` | Travels through item pipes and can also be deployed in the world |
 
 ---
 
@@ -251,11 +287,48 @@ World.tscn
 
 **Planned resolution:** Extract into a `PlayerController` class. `World` should only coordinate the grid state and spawning/despawning of `PlaceableNode`s.
 
+### ADR-007: `Fluid` covers liquids and gases
+
+**Decision:** There is a single `Fluid` item type rather than separate `Liquid` and `Gas` types.
+
+**Rationale:**
+- There is no meaningful difference in routing behaviour between liquids and gases in this game — both travel through fluid pipes
+- Splitting them would add complexity without any current mechanical payoff
+
+**Consequence:** If a future mechanic requires distinguishing liquids from gases (e.g. pressure, temperature), a new enum value can be added at that point.
+
+---
+
+### ADR-008: `Placeable` ItemType for deployable items
+
+**Decision:** Machines, vehicles, and other world-deployable items use `ItemType.Placeable`.
+
+**Rationale:**
+- These items need to travel through item pipes for autocrafting and live in player inventory
+- They also need to be deployable in the world
+- A single enum value handles both routing and deployment eligibility cleanly
+
+**Consequence:** The inventory system and pipe routing system use `Type == Placeable` as the flag for deployment eligibility. Items the player should never be able to place (e.g. `iron_ore`) use `Solid` regardless of their in-world representation as a `ResourceNode`.
+
+---
+
+### ADR-009: Item IDs can match Placeable IDs without conflict
+
+**Decision:** `ItemRegistry` and `PlaceableRegistry` are separate dictionaries — the same string ID (e.g. `"iron_ore"`) can exist in both without conflict.
+
+**Rationale:**
+- `iron_ore` as a `PlaceableDefinition` describes the mineable node in the world
+- `iron_ore` as an `ItemDefinition` describes the item that drops from it and lives in inventory
+- Lookup always targets a specific registry, so there is no ambiguity
+
+---
+
 ## Example data
 All data examples will live here to support building of new data files to add to the project.
+
 ### Placeable example
 
-Placeables are items that can ve place in the world, they all have attributes that are loaded at runtime using the registry.
+Placeables are items that can be place in the world, they all have attributes that are loaded at runtime using the registry.
 
 #### iron_ore.json
 
@@ -274,5 +347,22 @@ Placeables are items that can ve place in the world, they all have attributes th
     "TotalAmount": 10
   },
   "Hardness": 1.0
+}
+```
+
+### Item examples
+
+Items are goods that exist in inventory and flow through the factory network.
+
+#### iron_ingot.json
+
+```json
+{
+  "Id": "iron_ingot",
+  "Name": "Iron ingot",
+  "Description": "A block of iron ngot.",
+  "SpritePath": "res://Objects/Items/Assets/iron_ingot.png",
+  "MaxStackSize": 100,
+  "ItemType": "Solid"
 }
 ```
