@@ -11,6 +11,7 @@
 1. [Architecture](#architecture)
    - [Simulation / Presentation Split](#simulation--presentation-split)
    - [Core Classes](#core-classes)
+   - [JSON Loading](#json-loading)
    - [Scene Structure](#scene-structure)
 2. [Architecture Decision Records (ADRs)](#architecture-decision-records)
 3. [Example data](#example-data)
@@ -135,6 +136,33 @@ Previously named `GridTest`. The scene coordinator / presenter - not a simulatio
 - Draws the checkerboard grid using `_Draw`
 - Viewport-culled, camera-aware via `GetCanvasTransform().AffineInverse()`
 - Calls `QueueRedraw()` in `_Process` so it updates as the camera moves
+
+---
+
+## JSON Loading
+
+Placeables are loaded at startup by `PlaceableRegistry` using two helper classes.
+
+### `JsonLoader`
+
+A static utility class that handles reading and deserialising JSON files from the Godot virtual filesystem.
+
+- Uses Godot's `FileAccess` and `DirAccess` APIs to read files
+- Scans a directory for all `.json` files and deserialises each one
+- Generic method constrained to reference types: `Load<T> where T : class`
+- Uses `private static readonly` for the options object to avoid recreating it on every call
+
+### `TupleConverter`
+
+A custom `JsonConverter<(int X, int Y)>` from `System.Text.Json.Serialization`.
+
+- Required because `System.Text.Json` cannot deserialise C# ValueTuples out of the box
+- Reads a JSON object with `X` and `Y` fields and maps it to a C# tuple
+- Used for the `Size` field on `PlaceableDefinition`
+
+### Path Note
+
+Always use string concatenation for `res://` paths rather than `System.IO.Path.Combine`. See [ADR-005](#adr-005-use--not-pathcombine-for-godot-resource-paths).
 
 ---
 
