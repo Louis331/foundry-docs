@@ -19,3 +19,4 @@ Foundry is a 2D top-down factory automation game. The player manually mines raw 
 
 - [Architecture](architecture)
 - [Plan](plan)
+- [Dev log](devlog)
