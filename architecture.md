@@ -535,7 +535,7 @@ Recipes describe transformations machines perform. Time is in simulation ticks. 
 
 #### smelting.json
 
-​```json
+```json
 {
   "Id": "smelting",
   "Inputs": {
@@ -548,4 +548,4 @@ Recipes describe transformations machines perform. Time is in simulation ticks. 
   "MachineIds": ["furnace"],
   "Ticks": 40
 }
-​```
+```
