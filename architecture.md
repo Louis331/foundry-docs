@@ -33,11 +33,139 @@ Tickable                  No logic, just display
 
 The rule: **data knows nothing about nodes. Nodes know their data.**
 
-This pays off for save/load, simulation integrity, and future performance with 500+ machines.
+This pays off for save/load, simulation integrity, multiplayer determinism, and future performance with 500+ machines.
+
+---
+
+### Command Pipeline
+
+All state mutations flow through commands. No code outside of `Execute()` / `Rollback()` is permitted to mutate `GridWorld` directly.
+
+```
+Player input
+    ↓
+PlayerController
+    ↓
+FactoryOrchestrator  (creates commands)
+    ↓
+FactoryManager       (queues, ticks, executes, tracks history)
+    ↓
+Command.Execute()    (mutates GridWorld)
+    ↓
+Signal emitted       (World updates visuals)
+```
+
+This is the foundation for lockstep multiplayer — commands are serialisable units of work that can be sent to peers and executed identically on both machines.
 
 ---
 
 ### Core Classes
+
+#### `CommandBase` (abstract partial C# class, extends GodotObject)
+Base class for all commands. Every state mutation in the game is a command.
+
+| Property | Type | Description |
+|---|---|---|
+| `Tick` | `int` | Simulation tick the command was created on |
+| `PlayerId` | `int` | ID of the player who issued the command (placeholder, hardcoded to 0) |
+| `IsUndoable` | `bool` | Whether the command participates in undo/redo history. Default `true` |
+
+- Declares `abstract Execute()` and `abstract Rollback()`
+- Extends `GodotObject` so instances can be passed through Godot signals
+- Must be `partial` due to Godot source generator requirements
+
+**Subclasses:**
+- `PlaceCommand` — places a `Placeable` at a cell
+- `RemoveCommand` — removes a `Placeable` from a cell, stashes it for undo
+- `ExtractCommand` — extracts from a `ResourceNode`, non-undoable
+
+---
+
+#### `PlaceCommand` (partial C# class, extends CommandBase)
+Places a placeable in the world.
+
+| Property | Type | Description |
+|---|---|---|
+| `CellPosition` | `Vector2I` | Target cell |
+| `Placeable` | `Placeable` | The placeable instance to place |
+
+- `Execute()` calls `GridWorld.Instance.PlaceInWorld(CellPosition, Placeable)`
+- `Rollback()` calls `GridWorld.Instance.RemoveFromWorld(CellPosition)`
+
+---
+
+#### `RemoveCommand` (partial C# class, extends CommandBase)
+Removes a placeable from the world.
+
+| Property | Type | Description |
+|---|---|---|
+| `CellPosition` | `Vector2I` | Target cell |
+| `Placeable` | `Placeable` | Stashed on construction via `GridWorld.GetPlaceableAt` |
+
+- Constructor throws `InvalidOperationException` if cell is empty at construction time
+- `Execute()` calls `GridWorld.Instance.RemoveFromWorld(CellPosition)`
+- `Rollback()` calls `GridWorld.Instance.PlaceInWorld(CellPosition, Placeable)` restoring the stashed instance
+
+---
+
+#### `ExtractCommand` (partial C# class, extends CommandBase)
+Extracts resources from a `ResourceNode`.
+
+| Property | Type | Description |
+|---|---|---|
+| `ResourceNode` | `ResourceNode` | The node to extract from |
+| `amount` | `int` (private) | Amount to extract, must be >= 1 |
+
+- `IsUndoable` is always `false` — extraction is a permanent game action
+- `Rollback()` is a no-op
+- Constructor throws `InvalidOperationException` if amount < 1
+
+---
+
+#### `FactoryManager` (Godot Node, Autoload)
+Owns the command pipeline. The central nervous system of the simulation.
+
+| Field | Type | Description |
+|---|---|---|
+| `commandQueue` | `PriorityQueue<CommandBase, int>` | Pending commands sorted by tick, drained each physics frame |
+| `commandHistory` | `List<CommandBase>` | Full history of executed undoable commands |
+| `cursor` | `int` | Points to the last executed command in history. -1 = empty |
+| `CurrentTick` | `int` | Incremented every `_PhysicsProcess` call |
+
+**Signals:**
+- `CommandExecuted(CommandBase command)` — emitted after a command executes
+- `CommandRolledBack(CommandBase command)` — emitted after a command rolls back
+
+**Methods:**
+- `AddCommand(CommandBase)` — enqueues a command for execution
+- `Undo()` — rolls back the command at cursor, decrements cursor
+- `Redo()` — re-executes the command after cursor, increments cursor
+
+**Tick behaviour:**
+- Runs at Godot's physics tick rate (default 60Hz = 60 TPS)
+- Each tick: increments `CurrentTick`, drains all queued commands whose tick <= `CurrentTick`, then ticks all `GridWorld.Tickables`
+- Commands are dequeued in tick order (lowest first) via `PriorityQueue`
+
+**Undo/Redo model:**
+- History is a `List` with a cursor — not a stack. Cursor moves back on undo, forward on redo.
+- New commands truncate history after the cursor, discarding redo history (standard linear history)
+- Non-undoable commands (`IsUndoable = false`) execute but are never added to history
+
+---
+
+#### `FactoryOrchestrator` (plain C# singleton)
+Sits between `PlayerController` and `FactoryManager`. Translates player intent into commands. The only class permitted to construct command instances.
+
+| Method | Description |
+|---|---|
+| `AddPlaceable(Vector2I, Placeable)` | Creates and queues a `PlaceCommand` |
+| `RemovePlaceable(Vector2I)` | Creates and queues a `RemoveCommand` |
+| `ExtractResource(ResourceNode, int)` | Creates and queues an `ExtractCommand` |
+
+- Instantiated by `FactoryManager._Ready()` via `new FactoryOrchestrator()`
+- Not an Autoload — lives as a plain C# singleton, no Godot lifecycle needed
+
+---
 
 #### `Placeable` (plain C# class)
 Base class for all objects that exist in the simulation.
@@ -101,6 +229,7 @@ JSON lives at: `res://Objects/Items/Data/*.json`
 Example: [iron_ore.json](#iron_ingotjson)
 
 ---
+
 #### `ItemRegistry` (Autoload Node)
 Loads all `ItemDefinition` JSON files at startup. Globally accessible via Godot Autoload.
 
@@ -108,6 +237,7 @@ Loads all `ItemDefinition` JSON files at startup. Globally accessible via Godot 
 - Uses the shared `JsonLoader` helper for deserialisation
 - `ItemType` deserialises from string values using `[JsonConverter(typeof(JsonStringEnumConverter))]`
 - Lookup: `ItemRegistry.GetItem("iron_ore")` → `ItemDefinition`
+
 ---
 
 #### `ItemType` (enum)
@@ -127,7 +257,7 @@ Categorises placeables for simulation routing.
 | Value | Description |
 |---|---|
 | `Resource` | Mineable world resource, not tickable |
-| `Machine` | Tickable, added to `SimulationManager` tick loop |
+| `Machine` | Tickable, added to `FactoryManager` tick loop |
 
 ---
 
@@ -154,7 +284,7 @@ Subclass of `Placeable`. Base class for all tickable machines.
 | `Recipes` | `List<RecipeDefinition>` | Candidate recipes fetched from `RecipeRegistry` on construction |
 
 - Overrides `Tick()` — will process active recipes when recipe registry exists
-- Added to `GridWorld.tickables` on placement
+- Added to `GridWorld.Tickables` on placement, ticked by `FactoryManager` each physics frame
 - Fetches candidate recipes via `RecipeRegistry.Instance.GetRecipes(id)` on construction and caches the result
 
 ---
@@ -187,27 +317,21 @@ Loads all `RecipeDefinition` JSON files at startup. Builds two indexes for fast 
 
 ---
 
-#### `SimulationManager` (Godot Node)
-Drives the simulation tick loop. Lives as a child of the World scene.
-
-- Owns a `Timer` child node (`Tick`) set to `1.0 / 20.0` seconds (20 TPS)
-- On `Timeout` → iterates `GridWorld.Tickables`, calls `Tick()` on each
-- Tick rate is a hardcoded constant — dynamic TPS scaling parked for future
-- Holds an `[Export]` reference to `GridWorld`
-
-#### `GridWorld` (plain C# class)
+#### `GridWorld` (Godot Node2D, singleton)
 Authoritative simulation state. Owns the occupancy map.
 
 | Method | Description |
 |---|---|
-| `PlaceInWorld(Vector2I)` | Atomic check-and-commit placement |
+| `PlaceInWorld(Vector2I, Placeable)` | Atomic check-and-commit placement |
 | `RemoveFromWorld(Vector2I)` | Atomic removal |
-| `WorldToGrid(float x, float y)` | Converts world position to grid cell |
-| `GridToWorld(int x, int y)` | Returns cell centre in world coords |
-| `GetCellRect(int x, int y)` | Returns full cell Rect2 |
+| `GetPlaceableAt(Vector2I)` | Returns the `Placeable` at a cell, or null |
+| `WorldToGrid(Vector2)` | Converts world position to grid cell |
+| `GridToWorld(Vector2I)` | Returns cell centre in world coords |
+| `GetCellRect(Vector2I)` | Returns full cell Rect2 |
 
-- Occupied cells: `Dictionary<Vector2I, Placeable>` - the ground truth of what's placed where
-- Tickables: `Dictionary<Vector2I, Placeable>` - Public. All tickable placeables currently in the world
+- Occupied cells: `Dictionary<Vector2I, Placeable>` — the ground truth of what's placed where
+- Tickables: `Dictionary<Vector2I, Placeable>` — public, all tickable placeables currently in the world, iterated by `FactoryManager` each tick
+- Accessible globally via `GridWorld.Instance`
 
 ---
 
@@ -229,14 +353,27 @@ Visual overlay that shows mining progress on a `PlaceableNode`.
 
 ---
 
-#### `World` (Godot Node - main scene coordinator)
-Previously named `GridTest`. The scene coordinator / presenter - not a simulation class.
+#### `World` (Godot Node2D — scene coordinator)
+Presentation coordinator. Listens to `FactoryManager` signals and updates visuals. Owns no simulation state.
 
-- Holds `GridWorld` instance
-- Handles player input: left click = place, right click = mine, middle click = remove (dev tool)
-- Tracks mining state via `(float Timer, Placeable Target)? activeMining` nullable tuple
-- Holds `Dictionary<Vector2I, PlaceableNode>` (`placedNodes`) for fast node lookup
-- Mining logic: held right-click, proximity check, `hardness / miningSpeed` duration
+- Connects to `FactoryManager.CommandExecuted` and `FactoryManager.CommandRolledBack` in `_Ready()`
+- On `CommandExecuted`: pattern matches command type — `PlaceCommand` → `PlaceNodeAt`, `RemoveCommand` → `RemoveNodeAt`
+- On `CommandRolledBack`: inverse — `PlaceCommand` rollback → `RemoveNodeAt`, `RemoveCommand` rollback → `PlaceNodeAt`
+- Tracks `Dictionary<Vector2I, PlaceableNode>` (`placedNodes`) for fast node lookup
+- Exposes `GetPlaceableNodeAt(Vector2I)` for mining overlay access
+
+---
+
+#### `PlayerController` (Godot Node2D)
+Handles player input and delegates to `FactoryOrchestrator`. Owns mining state.
+
+- Left click → `FactoryOrchestrator.Instance.AddPlaceable(...)`
+- Middle click → `FactoryOrchestrator.Instance.RemovePlaceable(...)` (dev tool)
+- Right click held → mining loop, calls `FactoryOrchestrator.Instance.ExtractResource(...)` on completion
+- Ctrl+Z → `FactoryManager.Instance.Undo()`
+- Ctrl+Y → `FactoryManager.Instance.Redo()`
+- Tracks mining state via `(float Timer, Placeable Placeable)? activeMining` nullable tuple
+- Does **not** mutate `GridWorld` directly — all mutations go through `FactoryOrchestrator`
 
 ---
 
@@ -312,14 +449,23 @@ Validates all placeable drops against `ItemRegistry`.
 
 ```
 World.tscn
+├── GridWorld
 ├── GridRenderer
-├── SimulationManager
-│   └── Tick (Timer)
 ├── Player (CharacterBody2D)
-│   └── Camera2D
+│   ├── Camera2D
+│   └── PlayerController
 └── [PlaceableNodes spawned at runtime]
     ├── Sprite2D
     └── MiningOverlay
+```
+
+**Autoloads (in load order):**
+```
+PlaceableRegistry
+ItemRegistry
+RecipeRegistry
+GameStartup
+FactoryManager        ← instantiates FactoryOrchestrator in _Ready
 ```
 
 ---
@@ -363,16 +509,20 @@ World.tscn
 
 ---
 
-### ADR-004: No multiplayer architecture - dropped
+### ADR-004: Lockstep co-op multiplayer is a design goal
 
-**Decision:** Multiplayer compatibility is not a design goal.
+**Decision:** The game is being built with lockstep multiplayer as a target architecture, even before networking is implemented.
 
 **Rationale:**
-- This is a first game; multiplayer is a large scope expansion with significant complexity cost
-- The good architectural decisions already made (simulation/presentation split, deterministic state, string IDs) serve single-player goals on their own merits (save/load, simulation integrity)
-- The command/action routing pattern that would enable networking adds complexity without single-player payoff - dropped
+- Lockstep requires all state mutations to be deterministic and reproducible from a sequence of commands
+- Building the command pipeline now costs little in single-player and pays off significantly when networking is added
+- The simulation/presentation split already established makes this natural
 
-**What this means practically:** Fixed-timestep tick driving is still worth doing for simulation consistency, but the command/action layer pattern is not being built.
+**What this means practically:**
+- All state mutations flow through `CommandBase` subclasses via `FactoryManager`
+- Commands carry a tick number so peers can execute them at the same simulation moment
+- `FactoryOrchestrator` is the only class that constructs commands — future network layer sends serialised commands directly to `FactoryManager`
+- Known future concerns: undo/redo in multiplayer (what happens when one peer undoes something another depends on?), late-join world state sync via snapshot rather than command replay, server-side validation of range checks
 
 ---
 
@@ -387,13 +537,18 @@ World.tscn
 
 ---
 
-### ADR-006: `World.cs` currently owns too much - refactor completed
+### ADR-006: `World.cs` is a signal-driven presenter, not a coordinator
 
-**Status:** Known issue, resolved.
+**Status:** Resolved.
 
-**Problem:** `World.cs` handles player input, mining state, and proximity checks. These are player concerns, not world concerns.
+**Problem:** Earlier versions of `World.cs` handled player input, mining state, proximity checks, and direct `GridWorld` mutation. These were player concerns, not world concerns.
 
-**Planned resolution:** Extract into a `PlayerController` class. `World` should only coordinate the grid state and spawning/despawning of `PlaceableNode`s.
+**Resolution:** 
+- Input and mining state extracted to `PlayerController`
+- Direct `GridWorld` mutation replaced by command pipeline
+- `World` now only connects to `FactoryManager` signals and updates `PlaceableNode` visuals in response
+
+---
 
 ### ADR-007: `Fluid` covers liquids and gases
 
@@ -484,12 +639,51 @@ World.tscn
 
 ---
 
+### ADR-014: Command pipeline for all state mutations
+
+**Decision:** All `GridWorld` mutations must go through a `CommandBase` subclass, queued via `FactoryManager`. No code outside of `Execute()` / `Rollback()` may call `PlaceInWorld` or `RemoveFromWorld` directly.
+
+**Rationale:**
+- Lockstep multiplayer requires every state change to be a serialisable, replayable unit of work
+- Commands carry tick number and player ID, making them attributable and orderable across peers
+- The `PriorityQueue` ensures out-of-order network commands are executed in tick order on all peers
+
+**Consequence:** Adding a new type of state mutation requires a new `CommandBase` subclass. Direct `GridWorld` calls outside of commands are a bug.
+
+---
+
+### ADR-015: Cursor-based undo/redo history, not a stack
+
+**Decision:** Command history is a `List<CommandBase>` with an integer cursor, not a `Stack`.
+
+**Rationale:**
+- A stack loses history on pop — once you undo, you cannot redo
+- A cursor allows traversal in both directions without destroying entries
+- New commands truncate history after the cursor (standard linear history — no branching)
+
+**Consequence:** Undo/redo in multiplayer is a known future complexity — what happens when one peer undoes a command another peer's commands depend on is deferred to the multiplayer card.
+
+---
+
+### ADR-016: Simulation tick driven by physics frame, not a Timer
+
+**Decision:** `FactoryManager` uses `_PhysicsProcess` to drive the simulation tick, replacing the previous `Timer`-based `SimulationManager`.
+
+**Rationale:**
+- `_PhysicsProcess` runs at a fixed rate (configurable in Project Settings, default 60Hz) with no float drift
+- Timer-based ticking drifts slightly and is not deterministic enough for lockstep
+- Tick rate is now a single Project Settings value rather than a hardcoded constant
+
+**Consequence:** Simulation TPS is tied to Godot's physics tick rate. Changing TPS means changing Project Settings → Physics → Common → Physics Ticks Per Second.
+
+---
+
 ## Example data
 All data examples will live here to support building of new data files to add to the project.
 
 ### Placeable example
 
-Placeables are items that can be place in the world, they all have attributes that are loaded at runtime using the registry.
+Placeables are items that can be placed in the world, they all have attributes that are loaded at runtime using the registry.
 
 #### iron_ore.json
 
@@ -536,7 +730,7 @@ Items are goods that exist in inventory and flow through the factory network.
 {
   "Id": "iron_ingot",
   "Name": "Iron ingot",
-  "Description": "A block of iron ngot.",
+  "Description": "A block of iron ingot.",
   "SpritePath": "res://Objects/Items/Assets/iron_ingot.png",
   "MaxStackSize": 100,
   "ItemType": "Solid"

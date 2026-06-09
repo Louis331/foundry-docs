@@ -5,6 +5,41 @@
 
 [Home](index)
 
+## 09 June 2026
+
+### Summary
+Implemented a full command pipeline as the foundation for future lockstep co-op multiplayer. All world state mutations now flow through serialisable command objects rather than directly mutating `GridWorld`. Added cursor-based undo/redo history and wired up Ctrl+Z / Ctrl+Y.
+
+### Command pipeline
+Designed and built `CommandBase` as an abstract class extending `GodotObject`, with `Execute()` and `Rollback()` abstract methods plus shared fields for tick number and player ID. Built `PlaceCommand`, `RemoveCommand`, and `ExtractCommand` as subclasses. `RemoveCommand` stashes the `Placeable` instance at construction time so it can be restored on rollback. `ExtractCommand` is non-undoable by design — resource extraction is a permanent game action.
+
+Key decision: dropped the `ICommand` interface in favour of a pure abstract base class. No interface was needed since every command in the codebase inherits from `CommandBase` directly — the interface was abstraction for its own sake.
+
+### FactoryManager
+Built `FactoryManager` as a Godot Autoload owning the command queue, command history, and tick loop. Commands are stored in a `PriorityQueue<CommandBase, int>` keyed by tick number, ensuring out-of-order commands (future network use) execute in the correct order. Replaced the old `Timer`-based `SimulationManager` with `_PhysicsProcess` for deterministic fixed-rate ticking. `SimulationManager` deleted.
+
+Emits `CommandExecuted` and `CommandRolledBack` signals so the presentation layer can react without being in the execution path.
+
+### Undo/redo
+Implemented cursor-based undo/redo history — a `List<CommandBase>` with an integer cursor rather than a stack. New commands truncate history after the cursor (standard linear history). Ctrl+Z calls `Undo()`, Ctrl+Y calls `Redo()`. Built as a correctness smoke test for the whole pipeline.
+
+Key decision: cursor over stack because popping a stack destroys redo history. The list is the authoritative record of everything that happened.
+
+### FactoryOrchestrator
+Built `FactoryOrchestrator` as a plain C# singleton instantiated by `FactoryManager._Ready()`. Sits between `PlayerController` and `FactoryManager` — the only class permitted to construct command instances. Exposes `AddPlaceable`, `RemovePlaceable`, and `ExtractResource`.
+
+### World refactored
+`World` now connects to `FactoryManager` signals in `_Ready()` and updates visuals reactively. No longer called directly by `PlayerController`. This is the hook point for multiplayer — remote commands arrive at `FactoryManager` via the same path as local ones, and `World` renders them identically regardless of origin.
+
+### PlayerController cleaned up
+Stripped all direct `GridWorld` mutations from `PlayerController`. All placement and removal now delegates to `FactoryOrchestrator`. Mining extraction similarly routed through `ExtractCommand`.
+
+### Known future concerns noted
+- Undo/redo in multiplayer (what happens when one peer undoes something another depends on?)
+- Late-join world state sync via snapshot rather than command replay
+- Server-side validation of range checks
+- `PlayerController` still owns too much — mining logic refactor is a separate card
+
 ## 08 June 2026
 
 ### Summary
