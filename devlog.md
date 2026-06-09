@@ -8,7 +8,9 @@
 ## 09 June 2026
 
 ### Summary
-Implemented a full command pipeline as the foundation for future lockstep co-op multiplayer. All world state mutations now flow through serialisable command objects rather than directly mutating `GridWorld`. Added cursor-based undo/redo history and wired up Ctrl+Z / Ctrl+Y.
+Implemented a full command pipeline as the foundation for future lockstep co-op multiplayer. All world state mutations now flow through serialisable command objects rather than directly mutating GridWorld. Added cursor-based undo/redo history and wired up Ctrl+Z and Ctrl+Y.
+Spent the remainder of the day migrating to Jira and refining the backlog. The board is now fully sorted in priority order for MVP with a total of 104 points — roughly 5 to 6 weeks of focused work, realistically 2 to 3 months accounting for life. The foundation is solid enough that new content after MVP should be mostly data authoring rather than engineering.
+Also had a long design session exploring a potential USP feature: an Earth-based world generation mode using real GIS data, where your starting region shapes available resources and tech path based on actual geology and climate. Devon has tin and copper but no oil. Yorkshire has coal. The North Sea has oil. Still post-MVP but it is the kind of feature that makes the game worth talking about.
 
 ### Command pipeline
 Designed and built `CommandBase` as an abstract class extending `GodotObject`, with `Execute()` and `Rollback()` abstract methods plus shared fields for tick number and player ID. Built `PlaceCommand`, `RemoveCommand`, and `ExtractCommand` as subclasses. `RemoveCommand` stashes the `Placeable` instance at construction time so it can be restored on rollback. `ExtractCommand` is non-undoable by design — resource extraction is a permanent game action.
