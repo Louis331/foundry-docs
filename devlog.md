@@ -14,7 +14,7 @@ A long day - roughly 12 hours of solid development. Built the machine and recipe
 Started the day by fixing the mining overlay progress bar which wasn't rendering correctly.
 
 ### Documentation site
-Set up a public `foundry-docs` repo with GitHub Pages using the Jekyll Hacker theme with dark mode. Split documentation into `index.md`, `architecture.md`, and `plan.md`. Configured the site to suppress download buttons and the "View on GitHub" header. Live at `https://louis331.github.io/foundry-docs/`. Also set up a GitHub Projects kanban board with Backlog, In Progress, and Done columns with 22 cards ordered by dependency. Established a PR-based workflow for traceability.
+Set up a public `makwright-docs` repo with GitHub Pages using the Jekyll Hacker theme with dark mode. Split documentation into `index.md`, `architecture.md`, and `plan.md`. Configured the site to suppress download buttons and the "View on GitHub" header. Live at `https://louis331.github.io/makwright-docs/`. Also set up a GitHub Projects kanban board with Backlog, In Progress, and Done columns with 22 cards ordered by dependency. Established a PR-based workflow for traceability.
 
 ### Architecture documentation
 Wrote the full `architecture.md` covering the simulation/presentation split, all core classes, JSON loading helpers, scene structure, and ADRs 001-011.
