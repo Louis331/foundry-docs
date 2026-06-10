@@ -402,7 +402,9 @@ Handles player input and delegates to `FactoryOrchestrator`. Owns mining state.
 
 - Left click → `FactoryOrchestrator.Instance.AddPlaceable(...)`
 - Middle click → `FactoryOrchestrator.Instance.RemovePlaceable(...)` (dev tool)
-- Right click held → mining loop, calls `FactoryOrchestrator.Instance.ExtractResource(...)` on completion
+- Right click held → mining loop, calls `FactoryOrchestrator.Instance.ExtractResource(resourceNode, player.Inventory)` on completion
+  - Acquires `player` reference via `GetParent<Player>()` (parent node lookup, since `PlayerController` is a child of `Player` in the scene tree)
+  - Accesses `player.Inventory` property to pass the player's `PlayerInventory` instance
 - Ctrl+Z → `FactoryManager.Instance.Undo()`
 - Ctrl+Y → `FactoryManager.Instance.Redo()`
 - Tracks mining state via `(float Timer, Placeable Placeable)? activeMining` nullable tuple
