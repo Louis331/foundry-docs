@@ -13,6 +13,9 @@ I started the day by starting to work on MAK-1 which was a card to implement a p
 ### Player inventory
 Designed and implemented `PlayerInventory` and `ItemStack` this gives configurable stacking sizes uses the item JSON. This can then be used by `PlayerInventory` to stack items together and keep things organised. Updated `ExtractCommand` to use the `PlayerInventory` which is passed through to it from `FactoryOrchestrator`. This meant I could decouple the amount logic from the `PlayerController` and use the drop definition to decide what and how much drops. For now this is just simply outputting to the logs. Did raise a bug card to track a current bug for when the players inventory is full, this keeps removing amounts from the `ResourceNode`. 
 
+### JSON Loader Refactor (MAK-4)
+Added `LoadManyJson<T>` and `LoadManyJsonFromFile<T>` to `JsonLoader` to support array-per-file JSON. Items and recipes now group by family (e.g. `ingots.json`, `smelting.json`) rather than one object per file. Both `ItemRegistry` and `RecipeRegistry` migrated across, with duplicate-id guards added to both — all duplicates collected and reported before quit, consistent with the existing startup validation pattern.
+
 ## 09 June 2026
 
 ### Summary

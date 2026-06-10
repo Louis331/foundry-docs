@@ -248,6 +248,8 @@ Loads all `ItemDefinition` JSON files at startup. Globally accessible via Godot 
 - Uses the shared `JsonLoader` helper for deserialisation
 - `ItemType` deserialises from string values using `[JsonConverter(typeof(JsonStringEnumConverter))]`
 - Lookup: `ItemRegistry.GetItem("iron_ore")` → `ItemDefinition`
+- Item JSON files use array-per-file format (e.g. `ingots.json` contains multiple `ItemDefinition` objects). Single-item files use a single-element array.
+- Duplicate id guard: if two files define the same `Id`, all duplicates are collected and reported before the game quits (consistent with ADR-012).
 
 ---
 
@@ -347,6 +349,8 @@ Loads all `RecipeDefinition` JSON files at startup. Builds two indexes for fast 
 - `RecipeById` - `Dictionary<string, RecipeDefinition>` keyed by recipe id. Used for validation.
 - Exposes `GetRecipes(machineId)` - returns candidate recipe list for a machine, empty list if none found.
 - `Machine` instances call `GetRecipes` once on construction and cache the result.
+- Recipe JSON files use array-per-file format grouped by family (e.g. `smelting.json`, `washing.json`).
+- Duplicate id guard: same collect-all behaviour as `ItemRegistry`.
 
 ---
 
@@ -433,12 +437,22 @@ Placeables are loaded at startup by `PlaceableRegistry` using two helper classes
 
 ### JsonLoader
 
+### JsonLoader
+
 A static utility class that handles reading and deserialising JSON files from the Godot virtual filesystem.
 
 - Uses Godot's `FileAccess` and `DirAccess` APIs to read files
 - Scans a directory for all `.json` files and deserialises each one
-- Generic method constrained to reference types: `Load<T> where T : class`
+- Generic methods constrained to reference types: `where T : class`
 - Uses `private static readonly` for the options object to avoid recreating it on every call
+
+**Methods:**
+- `LoadJson<T>(string directoryPath)` — scans directory, deserialises each file as a single `T`. Used by `PlaceableRegistry`.
+- `LoadJsonFromFile<T>(string filePath)` — deserialises a single file as `T`.
+- `LoadManyJson<T>(string directoryPath)` — scans directory, deserialises each file as `List<T>`, returns a flat merged `List<T>`. Used by `ItemRegistry` and `RecipeRegistry`.
+- `LoadManyJsonFromFile<T>(string filePath)` — deserialises a single file as `List<T>`.
+
+File grouping is an authoring convenience — the registry receives a flat list with no knowledge of which file each definition came from.
 
 ### TupleConverter
 
@@ -725,6 +739,19 @@ FactoryManager        ← instantiates FactoryOrchestrator in _Ready
 **Consequence:** `ResourceNode` initialises `RemainingStock` from `PlaceableDefinition.MaxStock`. `DropDefinition.DropAmount` is the per-extract yield only.
 ---
 
+### ADR-018: Array-per-file is the standard shape for items and recipes
+
+**Decision:** Item and recipe JSON files contain a top-level array, even if the file has only one entry. Placeables remain one-object-per-file.
+
+**Rationale:**
+- Items and recipes come in families (ingots, ores, smelting recipes) — grouping them by family in a single file makes authoring and diffing practical
+- A consistent array shape means the loader never needs to inspect file contents to decide how to deserialise
+- Placeables are substantial standalone definitions tweaked in isolation — one-per-file matches that authoring pattern and there is no reason to disturb `PlaceableRegistry`
+
+**Consequence:** `ItemRegistry` and `RecipeRegistry` use `LoadManyJson<T>`. `PlaceableRegistry` continues to use `LoadJson<T>`. Any new registry for family-style data should default to array-per-file.
+
+---
+
 ## Example data
 All data examples will live here to support building of new data files to add to the project.
 
@@ -769,17 +796,19 @@ Placeables are items that can be placed in the world, they all have attributes t
 
 Items are goods that exist in inventory and flow through the factory network.
 
-#### iron_ingot.json
+#### ingots.json
 
 ```json
-{
-  "Id": "iron_ingot",
-  "Name": "Iron ingot",
-  "Description": "A block of iron ingot.",
-  "SpritePath": "res://Objects/Items/Assets/iron_ingot.png",
-  "MaxStackSize": 100,
-  "ItemType": "Solid"
-}
+[
+  {
+    "Id": "iron_ingot",
+    "Name": "Iron Ingot",
+    "Description": "An ingot of iron that can be used to craft other items.",
+    "SpritePath": "res://Objects/Items/Assets/iron_ingot.png",
+    "MaxStackSize": 100,
+    "ItemType": "Solid"
+  }
+]
 ```
 
 ### Recipe examples
@@ -789,16 +818,18 @@ Recipes describe transformations machines perform. Time is in simulation ticks. 
 #### smelting.json
 
 ```json
-{
-  "Id": "smelting",
-  "Inputs": {
-    "iron_ore": 3,
-    "coal": 1
-  },
-  "Outputs": {
-    "iron_ingot": 1
-  },
-  "MachineIds": ["furnace"],
-  "Ticks": 40
-}
+[
+  {
+    "Id": "smelting",
+    "Inputs": {
+      "iron_ore": 3,
+      "coal": 1
+    },
+    "Outputs": {
+      "iron_ingot": 1
+    },
+    "MachinesIds": ["furnace"],
+    "Ticks": 40
+  }
+]
 ```
