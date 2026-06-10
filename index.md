@@ -18,5 +18,4 @@ Makwright is a 2D top-down factory automation game. The player manually mines ra
 ## Links to other pages
 
 - [Architecture](architecture)
-- [Plan](plan)
 - [Dev log](devlog)
