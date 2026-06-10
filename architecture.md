@@ -109,16 +109,16 @@ Removes a placeable from the world.
 ---
 
 #### `ExtractCommand` (partial C# class, extends CommandBase)
-Extracts resources from a `ResourceNode`.
+Extracts resources from a `ResourceNode` and deposits the drop into a `PlayerInventory`.
 
 | Property | Type | Description |
 |---|---|---|
 | `ResourceNode` | `ResourceNode` | The node to extract from |
-| `amount` | `int` (private) | Amount to extract, must be >= 1 |
+| `Inventory` | `PlayerInventory` | Destination inventory to deposit the drop into |
 
 - `IsUndoable` is always `false` — extraction is a permanent game action
 - `Rollback()` is a no-op
-- Constructor throws `InvalidOperationException` if amount < 1
+- `Execute()` looks up the drop definition from `PlaceableRegistry`, resolves the item from `ItemRegistry`, calls `ResourceNode.Extract()` and deposits the result into `Inventory`
 
 ---
 
@@ -160,7 +160,7 @@ Sits between `PlayerController` and `FactoryManager`. Translates player intent i
 |---|---|
 | `AddPlaceable(Vector2I, Placeable)` | Creates and queues a `PlaceCommand` |
 | `RemovePlaceable(Vector2I)` | Creates and queues a `RemoveCommand` |
-| `ExtractResource(ResourceNode, int)` | Creates and queues an `ExtractCommand` |
+| `ExtractResource(ResourceNode, PlayerInventory)` | Creates and queues an `ExtractCommand` |
 
 - Instantiated by `FactoryManager._Ready()` via `new FactoryOrchestrator()`
 - Not an Autoload — lives as a plain C# singleton, no Godot lifecycle needed
@@ -179,8 +179,18 @@ Base class for all objects that exist in the simulation.
 - Not a Node - no scene tree dependency whatsoever
 
 **Subclasses:**
-- `ResourceNode` - mineable resource (iron ore, etc.)
 - `Machine` - tickable machine (furnace, etc.) - has `Tier` and `PowerConsumption`
+
+#### `ResourceNode` (plain C# class, extends Placeable)
+Subclass of `Placeable`. Represents a mineable world resource.
+
+| Property | Type | Description |
+|---|---|---|
+| `RemainingStock` | `int` | Current mineable stock, initialised from `PlaceableDefinition.MaxStock` |
+| `IsDepleted` | `bool` | True when `RemainingStock <= 0` |
+
+- `Extract(int amount)` — returns `Math.Min(amount, RemainingStock)` and decrements stock accordingly
+- Not tickable — added to world occupancy map but not to `GridWorld.Tickables`
 
 ---
 
@@ -198,6 +208,7 @@ Static data for a type of placeable, loaded from JSON. One definition per *type*
 | `Tier` | `MachineTier?` | Optional. Steam, LV, MV, HV |
 | `PowerConsumption` | `int?` | Optional. Positive = consumes, negative = produces |
 | `Speed` | `float` | Processing speed multiplier (default `1.0`). Effective recipe time = `Ticks / Speed` |
+| `MaxStock` | `int?` | Total mineable stock for resource nodes. Null for machines. |
 
 JSON lives at: `res://Objects/Data/Placeables/*.json`  
 Example: [iron_ore.json](#iron_orejson)
@@ -238,6 +249,28 @@ Loads all `ItemDefinition` JSON files at startup. Globally accessible via Godot 
 - `ItemType` deserialises from string values using `[JsonConverter(typeof(JsonStringEnumConverter))]`
 - Lookup: `ItemRegistry.GetItem("iron_ore")` → `ItemDefinition`
 
+---
+
+#### `ItemStack` (plain C# class)
+Represents a quantity of a single item type. Used as the unit of storage in `PlayerInventory`.
+
+| Property | Type | Description |
+|---|---|---|
+| `ItemId` | `string` | Stable string key matching `ItemRegistry` |
+| `Quantity` | `int` | Number of items in this stack |
+
+---
+#### `PlayerInventory` (plain C# class)
+Owned by `Player`. Slot-based item storage with stack size enforcement.
+
+| Property | Type | Description |
+|---|---|---|
+| `ItemSlots` | `List<ItemStack>` | Current inventory contents |
+| `MaxSlots` | `int` | Maximum number of occupied slots (default `10`) |
+
+- `AddItem(ItemStack)` — fills an existing partial stack of the same item first; spills remainder into a new slot recursively; logs a message if inventory is full
+- Stack size enforced against `ItemDefinition.MaxStackSize` via `ItemRegistry` lookup
+- Known limitation: items are silently lost if inventory is full — physical drop behaviour is post-MVP
 ---
 
 #### `ItemType` (enum)
@@ -380,6 +413,7 @@ Handles player input and delegates to `FactoryOrchestrator`. Owns mining state.
 #### `Player` (Godot CharacterBody2D)
 - `MiningRange` - exported field, set in Inspector
 - `MiningSpeed` - encapsulated property
+- `Inventory` - `PlayerInventory` instance, initialised in `_Ready()`
 - Owns a `Camera2D` as a child (camera follows player)
 
 ---
@@ -677,6 +711,17 @@ FactoryManager        ← instantiates FactoryOrchestrator in _Ready
 **Consequence:** Simulation TPS is tied to Godot's physics tick rate. Changing TPS means changing Project Settings → Physics → Common → Physics Ticks Per Second.
 
 ---
+### ADR-017: `DropDefinition` separates drop amount from total stock
+
+**Decision:** `DropDefinition` owns `ItemId` and `DropAmount` (per mine). Total stock lives on `PlaceableDefinition.MaxStock`, not on the drop.
+
+**Rationale:**
+- `TotalAmount` was doing double duty — it was both the per-mine yield and the total stock of the node
+- These are independent values: a node might have 100 stock but drop 10 per mine
+- Separating them makes both values independently tunable in JSON
+
+**Consequence:** `ResourceNode` initialises `RemainingStock` from `PlaceableDefinition.MaxStock`. `DropDefinition.DropAmount` is the per-extract yield only.
+---
 
 ## Example data
 All data examples will live here to support building of new data files to add to the project.
@@ -693,14 +738,12 @@ Placeables are items that can be placed in the world, they all have attributes t
   "Name": "Iron Ore",
   "Type": "Resource",
   "SpritePath": "res://Objects/Placeables/Assets/iron_ore.png",
-  "Size": {
-    "X": 1,
-    "Y": 1
-  },
+  "Size": { "X": 1, "Y": 1 },
   "Drop": {
     "ItemId": "iron_ore",
-    "TotalAmount": 10
+    "DropAmount": 10
   },
+  "MaxStock": 100,
   "Hardness": 1.0
 }
 ```
