@@ -5,7 +5,7 @@
 
 [Home](index)
 
-## 10 June 2026
+## 10th June 2026
 
 ## Summary
 I started the day by starting to work on MAK-1 which was a card to implement a player inventory. I also experimented with Coderabbit to review my PRs to feel more like a professional work stream. It caught a few issues with lack of defensive code, I was then able to fix these now hopefully leading to less issues in the future.
@@ -16,7 +16,9 @@ Designed and implemented `PlayerInventory` and `ItemStack` this gives configurab
 ### JSON Loader Refactor (MAK-4)
 Added `LoadManyJson<T>` and `LoadManyJsonFromFile<T>` to `JsonLoader` to support array-per-file JSON. Items and recipes now group by family (e.g. `ingots.json`, `smelting.json`) rather than one object per file. Both `ItemRegistry` and `RecipeRegistry` migrated across, with duplicate-id guards added to both — all duplicates collected and reported before quit, consistent with the existing startup validation pattern.
 
-## 09 June 2026
+---
+
+## 9ht June 2026
 
 ### Summary
 Implemented a full command pipeline as the foundation for future lockstep co-op multiplayer. All world state mutations now flow through serialisable command objects rather than directly mutating GridWorld. Added cursor-based undo/redo history and wired up Ctrl+Z and Ctrl+Y.
@@ -53,7 +55,9 @@ Stripped all direct `GridWorld` mutations from `PlayerController`. All placement
 - Server-side validation of range checks
 - `PlayerController` still owns too much — mining logic refactor is a separate card
 
-## 08 June 2026
+---
+
+## 8th June 2026
 
 ### Summary
 A long day - roughly 12 hours of solid development. Built the machine and recipe simulation foundation, added startup validation, and updated the documentation/project workflow. The architecture is in a genuinely solid place.
@@ -88,7 +92,7 @@ Rewrite the JSON loader to support array-per-file loading, then begin the player
 
 ---
 
-## 07 June 2026
+## 7th June 2026
 
 The foundation day. Everything from the base scene through to a working mining mechanic with visual feedback.
 
