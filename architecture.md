@@ -234,7 +234,7 @@ Static data for a type of item, loaded from JSON. One definition per *type*.
 | `Description` | `string` | Flavour/tooltip text |
 | `SpritePath` | `string` | Path to sprite asset |
 | `MaxStackSize` | `int` | Max items per stack |
-| `Type` | `ItemType` | `Solid`, `Fluid`, or `Placeable` |
+| `ItemType` | `ItemType` | `Solid`, `Fluid`, or `Placeable` |
 
 JSON lives at: `res://Objects/Items/Data/*.json`  
 Example: [iron_ore.json](#iron_ingotjson)
@@ -434,8 +434,6 @@ Handles player input and delegates to `FactoryOrchestrator`. Owns mining state.
 ## JSON Loading
 
 Placeables are loaded at startup by `PlaceableRegistry` using two helper classes.
-
-### JsonLoader
 
 ### JsonLoader
 
@@ -828,7 +826,7 @@ Recipes describe transformations machines perform. Time is in simulation ticks. 
     "Outputs": {
       "iron_ingot": 1
     },
-    "MachinesIds": ["furnace"],
+    "MachineId": ["furnace"],
     "Ticks": 40
   }
 ]
