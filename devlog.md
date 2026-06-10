@@ -5,6 +5,14 @@
 
 [Home](index)
 
+## 10 June 2026
+
+## Summary
+I started the day by starting to work on MAK-1 which was a card to implement a player inventory. I also experimented with Coderabbit to review my PRs to feel more like a professional work stream. It caught a few issues with lack of defensive code, I was then able to fix these now hopefully leading to less issues in the future.
+
+### Player inventory
+Designed and implemented `PlayerInventory` and `ItemStack` this gives configurable stacking sizes uses the item JSON. This can then be used by `PlayerInventory` to stack items together and keep things organised. Updated `ExtractCommand` to use the `PlayerInventory` which is passed through to it from `FactoryOrchestrator`. This meant I could decouple the amount logic from the `PlayerController` and use the drop definition to decide what and how much drops. For now this is just simply outputting to the logs. Did raise a bug card to track a current bug for when the players inventory is full, this keeps removing amounts from the `ResourceNode`. 
+
 ## 09 June 2026
 
 ### Summary
