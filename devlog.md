@@ -13,6 +13,9 @@ Shorter day today. Fixed a bug where placeables could be rendered twice on the s
 ### Prevent stacking placeables on occupied cells (MAK-51)
 `PlaceInWorld` already had an occupancy check but `PlaceCommand.Execute` was ignoring the return value, and `FactoryManager` was emitting `CommandExecuted` unconditionally. Fixed by adding a `Success` flag to `CommandBase` (defaulting `true`), setting it from the return value of `PlaceInWorld`, and gating `EmitSignal` on it in `_PhysicsProcess`. Same guard
 
+### Deterministic Tickable iteration order
+Swapped `GridWorld.Tickables` from `Dictionary<Vector2I, Placeable>` to `SortedDictionary` with an explicit `(X, then Y)` comparer — ensures identical tick order across clients for lockstep. Also fixed `RemoveFromWorld` to guard the `Tickables.Remove` call to machines only, and corrected a subtle ordering bug where the type check was happening after `occupiedCells.Remove` had already dropped the reference.
+
 ## 10th June 2026
 
 ### Summary
