@@ -5,9 +5,17 @@
 
 [Home](index)
 
+## 11th June 2026
+
+### Summary
+Shorter day today. Fixed a bug where placeables could be rendered twice on the same cell - the command signal was firing regardless of whether placement succeeded. Turned out to be a C# property shadowing bug hiding the real fix.
+
+### Prevent stacking placeables on occupied cells (MAK-51)
+`PlaceInWorld` already had an occupancy check but `PlaceCommand.Execute` was ignoring the return value, and `FactoryManager` was emitting `CommandExecuted` unconditionally. Fixed by adding a `Success` flag to `CommandBase` (defaulting `true`), setting it from the return value of `PlaceInWorld`, and gating `EmitSignal` on it in `_PhysicsProcess`. Same guard
+
 ## 10th June 2026
 
-## Summary
+### Summary
 I started the day by starting to work on MAK-1 which was a card to implement a player inventory. I also experimented with Coderabbit to review my PRs to feel more like a professional work stream. It caught a few issues with lack of defensive code, I was then able to fix these now hopefully leading to less issues in the future.
 
 ### Player inventory
