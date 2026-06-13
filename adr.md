@@ -281,3 +281,28 @@ Tick systems are separated by concern:
 - Network logic lives in the network system, not in individual placeables
 - Future network types follow the same pattern — add a system-level tick call, not entries in `Tickables`
 - Cache locality and iteration order concerns for `Tickables` do not apply to network systems, which manage their own data structures
+
+---
+
+### ADR-020: xUnit for unit testing; plain C# classes only
+
+**Decision:** The test suite uses xUnit via a separate .NET project (`tests/Makwright.Tests.csproj`). Tests target plain C# simulation classes only. Classes with Godot dependencies are not tested at the unit level.
+
+**Rationale:**
+- xUnit runs via `dotnet test` with no Godot runtime — CI is trivial to wire up
+- The simulation/presentation split (ADR-001) means the most important logic is already in plain C# classes with no scene tree dependency
+- Attempting to test Godot-dependent classes (Nodes, GodotObject subclasses, classes calling Autoload singletons) requires either a running Godot runtime or significant mocking infrastructure — cost outweighs benefit at this stage
+
+**What is testable:**
+- Any class with no `using Godot` imports and no calls to Autoload singletons (e.g. `PlayerInventory`, `ResourceNode`, `ItemStack`, definition classes)
+- New simulation classes should be written to this standard by default
+
+**What is not testable (currently):**
+- Any class extending a Godot type (`Node`, `Node2D`, `GodotObject`, etc.)
+- Any class calling Godot APIs (`DirAccess`, `FileAccess`, `GD.Print`, etc.)
+- Any class accessing a static Autoload singleton (`ItemRegistry.Instance`, `GridWorld.Instance`, etc.)
+
+**Pattern for new testable classes:**
+Where a class needs registry or Godot API access, inject it as a delegate rather than calling the singleton directly. See `PlayerInventory` as the established example — it takes `Func<string, ItemDefinition?>` rather than calling `ItemRegistry.Instance` directly. Production call sites pass the real lookup; tests pass a dictionary-backed lambda.
+
+**Consequence:** Some existing classes (registries, commands, `JsonLoader`) cannot be unit tested without a refactor. These are not being retrofitted now — the pattern will be applied to new implementations going forward. The blockers and proposed fixes are documented in [testing.md](testing).

@@ -2,7 +2,7 @@
 ---
 ## Architecture
 
-[Home](index) | [ADRs](adr) |
+[Home](index) | [Architecture](architecture) | [ADRs](adr) | [Testing](testing)
 
 ---
 
