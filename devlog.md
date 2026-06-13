@@ -5,6 +5,35 @@
 
 [Home](index)
 
+## 13th June 2026
+
+### Summary
+Today I finished off the UI and made the game feel a bit more gamey. It will allow for testing new items a lot easier going forward. I can now select and deselct and item in the hotbar using the number keys, saving the scroll bar for zoom in and out later. CoderRabbit is a very good tool, keeps catching things that would have caused an issue further down the line and is allowing to faster learning of C#.
+
+### Basic hotbar UI — polish, inventory reactivity, layout (MAK-2)
+`SelectedHotbarSlot` moved from `HUD` to `PlayerInventory` — selection state is player data not UI state. `HUD.SelectHotbarSlot` now delegates to `PlayerInventory.HotbarSelectSlot` and only handles the visual highlight. Re-selecting the active slot deselects it.
+
+`RemoveItem(ItemStack, int)` was refacted in `PlayerInventory` — finds slot by reference equality, decrements quantity, nulls slot at zero. `InventoryChanged` C# event emitted on mutation and `HUD` subscribes in `SetInventory`, redrawing all 10 slots on any change.
+
+`Hud` wrapped in a `CanvasLayer` in `World.tscn` so it stays fixed to the viewport independent of camera movement. `HotbarContainer` anchored to bottom-centre within a Full Rect root control.
+
+Deferred: `RemoveItem` does not account for placement signal result — optimistic decrement only. Blocking placement on non-placeable items captured as a separate card.
+
+### Cursor C# language server fix
+godot-tools extension was conflicting with the C# language server, breaking go-to-definition. Disabled godot-tools for the workspace and installed the Anysphere C# extension — full intellisense and go-to-definition now working.
+
+---
+
+## 12th June 2026
+
+### Summary
+Very sort day today. Implemented the first half of the basic hud. This will help with debugging and making it so the game feels like a game. Played a bit of Foundry which made me have some new ideas about what a factory game does/shoudl have. Scale is one of the biggest things, how can you make it so the recipes are balance and have a need for big factories? How can you make it so the player is always thinking about what they can be doing? You want to encorage players to keep expanding, thinking about the diffrences between modded Minecraft and Factorio for example. Modded Minecraft a lot of players are happy to wait and don't build a big number of machines unlike in Factorio where the famous saying `The factory must grow` comes from. I want Makwright to come in the 2nd camp where the place is always building machines.
+
+### Basic hotbar UI — initial implementation (MAK-2)
+Built `HUD.tscn` as a `Control` scene with an `HBoxContainer` of 10 `PanelContainer` slots. `HUD.cs` renders inventory slot labels from `PlayerInventory`. Number keys 1-0 call `SelectHotbarSlot` on `HUD`, updating `SelectedIndex` with yellow modulate highlight on the active slot. `ItemDefinition.IsPlaceable` added and cross-referenced from `PlaceableRegistry` at load time.
+
+---
+
 ## 11th June 2026
 
 ### Summary
@@ -15,6 +44,8 @@ Shorter day today. Fixed a bug where placeables could be rendered twice on the s
 
 ### Deterministic Tickable iteration order
 Swapped `GridWorld.Tickables` from `Dictionary<Vector2I, Placeable>` to `SortedDictionary` with an explicit `(X, then Y)` comparer — ensures identical tick order across clients for lockstep. Also fixed `RemoveFromWorld` to guard the `Tickables.Remove` call to machines only, and corrected a subtle ordering bug where the type check was happening after `occupiedCells.Remove` had already dropped the reference.
+
+---
 
 ## 10th June 2026
 
