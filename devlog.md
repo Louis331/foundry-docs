@@ -8,7 +8,11 @@
 ## 13th June 2026
 
 ### Summary
-Today I finished off the UI and made the game feel a bit more gamey. It will allow for testing new items a lot easier going forward. I can now select and deselect an item in the hotbar using the number keys, saving the scroll bar for zoom in and out later. CoderRabbit is a very good tool, keeps catching things that would have caused an issue further down the line and is allowing faster learning of C#. Have added unit testing and has raised a point where we should use the delegate injection pattern going forward to allow for testing for more code.
+Today I finished off the UI and made the game feel a bit more gamey. It will allow for testing new items a lot easier going forward. I can now select and deselect an item in the hotbar using the number keys, saving the scroll bar for zoom in and out later. CoderRabbit is a very good tool, keeps catching things that would have caused an issue further down the line and is allowing faster learning of C#.
+
+Have added unit testing and has raised a decison where I should use the delegate injection pattern going forward to allow for testing for more code.
+
+Next was to add an optional field that would allow `Placeables` to have a collisons, this was the simplest task all day.
 
 ### Basic hotbar UI — polish, inventory reactivity, layout (MAK-2)
 `SelectedHotbarSlot` moved from `HUD` to `PlayerInventory` — selection state is player data not UI state. `HUD.SelectHotbarSlot` now delegates to `PlayerInventory.HotbarSelectSlot` and only handles the visual highlight. Re-selecting the active slot deselects it.
@@ -32,6 +36,9 @@ Classes with Godot dependencies (commands, registries, `JsonLoader`, all Nodes) 
 CI wiring and `.coderabbit.yaml` updated to suppress test suggestions for Godot-dependent classes.
 
 ADR-020 added documenting the xUnit strategy and the plain-C#-only test boundary.
+
+### Add optional collision to placeables (MAK-6)
+`Collidable` bool field added to `PlaceableDefinition` (default `false`). When true, `PlaceableNode.Initialize` dynamically constructs a `StaticBody2D` with a child `CollisionShape2D` sized to the placeable's footprint (`Size * CellSize`), centred on the node origin. Player collision works via shared layer 1 defaults — no explicit layer configuration required. Relevant JSON files (machines, trees) updated to set `"Collidable": true`.
 
 ---
 
