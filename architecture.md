@@ -208,6 +208,7 @@ Static data for a type of placeable, loaded from JSON. One definition per *type*
 | `PowerConsumption` | `int?` | Optional. Positive = consumes, negative = produces |
 | `Speed` | `float` | Processing speed multiplier (default `1.0`). Effective recipe time = `Ticks / Speed` |
 | `MaxStock` | `int?` | Total mineable stock for resource nodes. Null for machines. |
+| `Collidable` | `bool` | Whether the placeable blocks movement. Default `false` |
 
 JSON lives at: `res://Objects/Data/Placeables/*.json`  
 Example: [iron_ore.json](#iron_orejson)
@@ -382,7 +383,8 @@ Presentation layer for a single placed object.
 - Holds a reference to its `Placeable` instance
 - Delegates `MiningProgress` down to `MiningOverlay`
 - Knows nothing about `World.cs` or game logic
-- Child hierarchy: `Sprite2D` → `MiningOverlay`
+- When `Collidable` is true on the definition, dynamically adds a `StaticBody2D` with a child `CollisionShape2D` sized to the placeable's footprint
+- Child hierarchy: `Sprite2D`, `MiningOverlay`, and (when `Collidable` is true) `StaticBody2D` → `CollisionShape2D`
 
 ---
 
@@ -573,7 +575,8 @@ Placeables are items that can be placed in the world, they all have attributes t
   "Size": {
     "X": 1,
     "Y": 1
-  }
+  },
+  "Collidable": true
 }
 ```
 
