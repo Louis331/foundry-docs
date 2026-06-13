@@ -14,6 +14,8 @@ Today I finished off the UI and made the game feel a bit more gamey. It will all
 
 Next was to add an optional field that would allow `Placeables` to have a collisons, this was the simplest task all day.
 
+Added a chunk system to the world to allow to loading and unloading later down the line. Also implemented my first strut to replace Vector2I to allow CLI unit testing. Have raised another tech debt story to start replace this where we can.
+
 ### Basic hotbar UI — polish, inventory reactivity, layout (MAK-2)
 `SelectedHotbarSlot` moved from `HUD` to `PlayerInventory` — selection state is player data not UI state. `HUD.SelectHotbarSlot` now delegates to `PlayerInventory.HotbarSelectSlot` and only handles the visual highlight. Re-selecting the active slot deselects it.
 
@@ -39,6 +41,18 @@ ADR-020 added documenting the xUnit strategy and the plain-C#-only test boundary
 
 ### Add optional collision to placeables (MAK-6)
 `Collidable` bool field added to `PlaceableDefinition` (default `false`). When true, `PlaceableNode.Initialize` dynamically constructs a `StaticBody2D` with a child `CollisionShape2D` sized to the placeable's footprint (`Size * CellSize`), centred on the node origin. Player collision works via shared layer 1 defaults — no explicit layer configuration required. Relevant JSON files (machines, trees) updated to set `"Collidable": true`.
+
+### Chunk data structure (MAK-9)
+
+`CellCoord` plain C# struct added at `WorldLogic/CellCoord.cs` — Godot-free coordinate type implementing `IComparable<CellCoord>` and `IEquatable<CellCoord>`, ordered X then Y. Replaces `Vector2I` as dictionary key wherever Godot independence is required.
+
+`Chunk` plain C# class added at `WorldLogic/Chunk.cs` — dumb container owning a `Dictionary<CellCoord, Placeable>` for placeables and a `SortedDictionary<CellCoord, Placeable>` for tickables within a 16×16 cell region. No knowledge of its own world position. `AddPlaceable` returns false on double-occupation rather than throwing. `RemovePlaceable` returns false if cell is empty.
+
+`GridWorld` refactored from flat dictionaries to a `SortedDictionary<CellCoord, Chunk>`. All public methods (`PlaceInWorld`, `RemoveFromWorld`, `GetPlaceableAt`) unchanged in signature — now route to the correct chunk internally via `CellToChunkCoord` and `CellToCellCoord` private helpers. Chunks are lazy-initialised on first write. `Tickables` flat property removed, replaced with `GetActiveChunks()` returning the full chunk dictionary.
+
+`FactoryManager` tick loop updated to iterate `GetActiveChunks()` then each chunk's `Tickables` — deterministic order maintained. Seam is in place for future active/inactive chunk filtering without touching `FactoryManager`.
+
+Unit tests blocked by `Placeable` depending on `Vector2I` — captured as MAK-55. `Chunk.cs` has a TODO comment referencing the ticket.
 
 ---
 

@@ -142,7 +142,7 @@ Owns the command pipeline. The central nervous system of the simulation.
 
 **Tick behaviour:**
 - Runs at Godot's physics tick rate (default 60Hz = 60 TPS)
-- Each tick: increments `CurrentTick`, drains all queued commands whose tick <= `CurrentTick`, then ticks all `GridWorld.Tickables`
+- Each tick: increments `CurrentTick`, drains all queued commands whose tick <= `CurrentTick`, then iterates `GridWorld.GetActiveChunks()` and ticks each chunk's `Tickables` in deterministic order
 - Commands are dequeued in tick order (lowest first) via `PriorityQueue`
 
 **Undo/Redo model:**
@@ -360,19 +360,22 @@ Loads all `RecipeDefinition` JSON files at startup. Builds two indexes for fast 
 ---
 
 #### `GridWorld` (Godot Node2D, singleton)
-Authoritative simulation state. Owns the occupancy map.
+Authoritative simulation state. Coordinator over all chunks — no simulation state lives directly on `GridWorld`.
 
 | Method | Description |
 |---|---|
-| `PlaceInWorld(Vector2I, Placeable)` | Atomic check-and-commit placement |
-| `RemoveFromWorld(Vector2I)` | Atomic removal |
-| `GetPlaceableAt(Vector2I)` | Returns the `Placeable` at a cell, or null |
+| `PlaceInWorld(Vector2I, Placeable)` | Routes to correct chunk, lazy-inits chunk if first write to that region |
+| `RemoveFromWorld(Vector2I)` | Routes to correct chunk, returns false if chunk or cell not found |
+| `GetPlaceableAt(Vector2I)` | Returns `Placeable?` at cell, null if chunk or cell not found |
+| `GetActiveChunks()` | Returns `SortedDictionary<CellCoord, Chunk>` — all chunks in deterministic order |
 | `WorldToGrid(Vector2)` | Converts world position to grid cell |
 | `GridToWorld(Vector2I)` | Returns cell centre in world coords |
 | `GetCellRect(Vector2I)` | Returns full cell Rect2 |
 
-- Occupied cells: `Dictionary<Vector2I, Placeable>` — the ground truth of what's placed where
-- Tickables: `SortedDictionary<Vector2I, Placeable>` — public, all tickable placeables currently in the world, iterated by `FactoryManager` each tick. Keyed by world-space origin cell, ordered by X then Y for deterministic iteration order across clients.
+- Internal state: `SortedDictionary<CellCoord, Chunk>` keyed by chunk coordinate
+- Chunk coordinate derived from cell coordinate via integer division by `chunk_size` (16)
+- Private helpers: `CellToChunkCoord(Vector2I)`, `CellToCellCoord(Vector2I)`
+- Chunks are lazy-initialised on first write — no pre-allocation
 - Accessible globally via `GridWorld.Instance`
 
 ---
@@ -448,6 +451,34 @@ Handles player input and delegates to `FactoryOrchestrator`. Owns mining state.
 - Draws the checkerboard grid using `_Draw`
 - Viewport-culled, camera-aware via `GetCanvasTransform().AffineInverse()`
 - Calls `QueueRedraw()` in `_Process` so it updates as the camera moves
+
+---
+
+#### `CellCoord` (plain C# struct, `WorldLogic/CellCoord.cs`)
+Godot-free coordinate type used as a dictionary key throughout the chunk system.
+
+| Property | Type | Description |
+|---|---|---|
+| `X` | `int` | Horizontal cell coordinate |
+| `Y` | `int` | Vertical cell coordinate |
+
+- Implements `IComparable<CellCoord>` and `IEquatable<CellCoord>`
+- Ordered X then Y for deterministic `SortedDictionary` iteration
+- Used in place of `Vector2I` wherever Godot independence is required
+
+---
+
+#### `Chunk` (plain C# class, `WorldLogic/Chunk.cs`)
+Owns all placeables and tickables within a 16×16 cell region. Dumb container — no knowledge of its own position in the world.
+
+| Property | Type | Description |
+|---|---|---|
+| `Placeables` | `Dictionary<CellCoord, Placeable>` | All placeables in this chunk |
+| `Tickables` | `SortedDictionary<CellCoord, Placeable>` | Tickable placeables only, ordered X then Y |
+
+- `AddPlaceable(CellCoord, Placeable)` — returns `false` if cell is already occupied, otherwise adds to `Placeables` and conditionally to `Tickables` if `PlaceableType.Machine`
+- `RemovePlaceable(CellCoord)` — returns `false` if cell is empty, otherwise removes from both dictionaries
+- `GetPlaceable(CellCoord)` — returns `Placeable?` at coord, null if empty
 
 ---
 
