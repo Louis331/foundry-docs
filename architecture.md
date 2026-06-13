@@ -384,7 +384,7 @@ Presentation layer for a single placed object.
 - Delegates `MiningProgress` down to `MiningOverlay`
 - Knows nothing about `World.cs` or game logic
 - When `Collidable` is true on the definition, dynamically adds a `StaticBody2D` with a child `CollisionShape2D` sized to the placeable's footprint
-- Child hierarchy: `Sprite2D` → `MiningOverlay` → `StaticBody2D` (conditional)
+- Child hierarchy: `Sprite2D`, `MiningOverlay`, and (when `Collidable` is true) `StaticBody2D` → `CollisionShape2D`
 
 ---
 

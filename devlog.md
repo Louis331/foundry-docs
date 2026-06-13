@@ -10,7 +10,7 @@
 ### Summary
 Today I finished off the UI and made the game feel a bit more gamey. It will allow for testing new items a lot easier going forward. I can now select and deselect an item in the hotbar using the number keys, saving the scroll bar for zoom in and out later. CoderRabbit is a very good tool, keeps catching things that would have caused an issue further down the line and is allowing faster learning of C#.
 
-Have added unit testing and has raised a decison where I should use the delegate injection pattern going forward to allow for testing for more code.
++ Added unit testing and decided to use the delegate injection pattern going forward to make more code testable.
 
 Next was to add an optional field that would allow `Placeables` to have a collisons, this was the simplest task all day.
 
