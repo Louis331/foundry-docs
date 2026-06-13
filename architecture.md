@@ -262,14 +262,19 @@ Represents a quantity of a single item type. Used as the unit of storage in `Pla
 
 ---
 #### `PlayerInventory` (plain C# class)
-Owned by `Player`. Slot-based item storage with stack size enforcement.
+Owned by `Player`. Slot-based item storage with stack size enforcement and hotbar selection state.
 
 | Property | Type | Description |
 |---|---|---|
-| `ItemSlots` | `List<ItemStack>` | Current inventory contents |
+| `ItemSlots` | `List<ItemStack?>` | Current inventory contents, null slots represent empty positions |
 | `MaxSlots` | `int` | Maximum number of occupied slots (default `10`) |
+| `SelectedHotbarSlot` | `int` | Currently selected hotbar index. -1 means nothing selected |
+| `InventoryChanged` | `event Action` | Fired after any inventory mutation |
 
 - `AddItem(ItemStack)` — fills an existing partial stack of the same item first; spills remainder into a new slot recursively; logs a message if inventory is full
+- `HotbarSelectSlot(int index)` — selects the slot at index; if index is already selected, deselects (sets to -1); returns `ItemStack?` at the slot
+- `GetHotbarSelectedItem()` — returns `ItemStack?` at `SelectedHotbarSlot`, null if -1 or empty
+- `removeItem(ItemStack stack, int quantity)` — finds slot by reference equality, decrements quantity, nulls slot if zero, emits `InventoryChanged`
 - Stack size enforced against `ItemDefinition.MaxStackSize` via `ItemRegistry` lookup
 - Known limitation: items are silently lost if inventory is full — physical drop behaviour is post-MVP
 ---
@@ -397,6 +402,20 @@ Presentation coordinator. Listens to `FactoryManager` signals and updates visual
 - On `CommandRolledBack`: inverse — `PlaceCommand` rollback → `RemoveNodeAt`, `RemoveCommand` rollback → `PlaceNodeAt`
 - Tracks `Dictionary<Vector2I, PlaceableNode>` (`placedNodes`) for fast node lookup
 - Exposes `GetPlaceableNodeAt(Vector2I)` for mining overlay access
+- Sets `Hud.SetInventory(Player.Inventory)` in `_Ready` after node references are resolved
+
+---
+
+#### `Hud` (Godot Control, child of CanvasLayer)
+Presentation layer for the player hotbar. Subscribes to `PlayerInventory.InventoryChanged` and redraws on mutation.
+
+| Method | Description |
+|---|---|
+| `SetInventory(PlayerInventory)` | Wires inventory reference and subscribes to `InventoryChanged` |
+| `drawHotbar()` | Iterates 10 slots, updates each `PanelContainer` label from current inventory state |
+
+- Anchored to bottom-centre of viewport via parent `CanvasLayer`
+- Redraws all 10 slots on any inventory change — no diffing, acceptable at hotbar scale
 
 ---
 
@@ -501,6 +520,8 @@ World.tscn
 ├── Player (CharacterBody2D)
 │   ├── Camera2D
 │   └── PlayerController
+├── HudLayer
+│   └── Hud
 └── [PlaceableNodes spawned at runtime]
     ├── Sprite2D
     └── MiningOverlay
