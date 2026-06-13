@@ -13,7 +13,7 @@ Today I finished off the UI and made the game feel a bit more gamey. It will all
 ### Basic hotbar UI — polish, inventory reactivity, layout (MAK-2)
 `SelectedHotbarSlot` moved from `HUD` to `PlayerInventory` — selection state is player data not UI state. `HUD.SelectHotbarSlot` now delegates to `PlayerInventory.HotbarSelectSlot` and only handles the visual highlight. Re-selecting the active slot deselects it.
 
-`removeItem(ItemStack, int)` added to `PlayerInventory` — finds slot by reference equality, decrements quantity, nulls slot at zero. `InventoryChanged` C# event emitted on mutation and `HUD` subscribes in `SetInventory`, redrawing all 10 slots on any change.
+`RemoveItem(ItemStack, int)` was refacted in `PlayerInventory` — finds slot by reference equality, decrements quantity, nulls slot at zero. `InventoryChanged` C# event emitted on mutation and `HUD` subscribes in `SetInventory`, redrawing all 10 slots on any change.
 
 `Hud` wrapped in a `CanvasLayer` in `World.tscn` so it stays fixed to the viewport independent of camera movement. `HotbarContainer` anchored to bottom-centre within a Full Rect root control.
 
