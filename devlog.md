@@ -8,7 +8,7 @@
 ## 13th June 2026
 
 ### Summary
-Today I finished off the UI and made the game feel a bit more gamey. It will allow for testing new items a lot easier going forward. I can now select and deselct and item in the hotbar using the number keys, saving the scroll bar for zoom in and out later. CoderRabbit is a very good tool, keeps catching things that would have caused an issue further down the line and is allowing to faster learning of C#. Have added unit testing and has raised a point where we should use the delegate injection pattern going forward to allow for testing for more code.
+Today I finished off the UI and made the game feel a bit more gamey. It will allow for testing new items a lot easier going forward. I can now select and deselect an item in the hotbar using the number keys, saving the scroll bar for zoom in and out later. CoderRabbit is a very good tool, keeps catching things that would have caused an issue further down the line and is allowing faster learning of C#. Have added unit testing and has raised a point where we should use the delegate injection pattern going forward to allow for testing for more code.
 
 ### Basic hotbar UI — polish, inventory reactivity, layout (MAK-2)
 `SelectedHotbarSlot` moved from `HUD` to `PlayerInventory` — selection state is player data not UI state. `HUD.SelectHotbarSlot` now delegates to `PlayerInventory.HotbarSelectSlot` and only handles the visual highlight. Re-selecting the active slot deselects it.
@@ -27,7 +27,7 @@ xUnit test project added at `tests/Makwright.Tests.csproj`, referenced in the ex
 
 `PlayerInventory` required two small production refactors to unlock testing. `AddItem` previously called `ItemRegistry.Instance` directly — replaced with an injected `Func<string, ItemDefinition?>` constructor parameter, defaulting to the real registry at the `Player.cs` call site. `GD.Print` in the full-inventory path was made injectable via an optional `Action<string>` log delegate to avoid an `AccessViolation` outside the Godot runtime.
 
-Classes with Godot dependencies (commands, registries, `JsonLoader`, all Nodes) are not covered — they require either a running Godot runtime or non-trivial refactoring. The delegate injection pattern established by `PlayerInventory` is the documented approach for new simulation classes going forward. Blocked refactors captured in `docs/testing.md`.
+Classes with Godot dependencies (commands, registries, `JsonLoader`, all Nodes) are not covered — they require either a running Godot runtime or non-trivial refactoring. The delegate injection pattern established by `PlayerInventory` is the documented approach for new simulation classes going forward. Blocked refactors captured in [docs/testing.md](testing).
 
 CI wiring and `.coderabbit.yaml` updated to suppress test suggestions for Godot-dependent classes.
 

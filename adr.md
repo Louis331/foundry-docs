@@ -305,4 +305,4 @@ Tick systems are separated by concern:
 **Pattern for new testable classes:**
 Where a class needs registry or Godot API access, inject it as a delegate rather than calling the singleton directly. See `PlayerInventory` as the established example — it takes `Func<string, ItemDefinition?>` rather than calling `ItemRegistry.Instance` directly. Production call sites pass the real lookup; tests pass a dictionary-backed lambda.
 
-**Consequence:** Some existing classes (registries, commands, `JsonLoader`) cannot be unit tested without a refactor. These are not being retrofitted now — the pattern will be applied to new implementations going forward. The blockers and proposed fixes are documented in `docs/testing.md`.
+**Consequence:** Some existing classes (registries, commands, `JsonLoader`) cannot be unit tested without a refactor. These are not being retrofitted now — the pattern will be applied to new implementations going forward. The blockers and proposed fixes are documented in [testing.md](testing).
